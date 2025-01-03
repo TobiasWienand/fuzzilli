@@ -6,7 +6,7 @@ Package.resolved
 .vscode
 .*.sw?
 .swiftpm
-
+Playground
 # custom GCE configuration
 Cloud/GCE/config.sh
 
