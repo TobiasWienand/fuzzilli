@@ -88,6 +88,10 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
         return Double(context.found_edges) / Double(context.num_edges)
     }
 
+    public var currentTypeScore: UInt32 {
+        return UInt32(context.found_types)
+    }
+
     /// Context for the C library.
     private var context = libcoverage.cov_context()
 
@@ -151,7 +155,7 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
 
         let _ = fuzzer.execute(Program(), purpose: .startup)
         libcoverage.cov_finish_initialization(&context, shouldTrackEdgeCounts ? 1 : 0)
-        logger.info("Initialized, \(context.num_edges) edges")
+        logger.info("Initialized, \(context.num_edges - (1 << 21)) edges")
     }
 
     public func evaluate(_ execution: Execution) -> ProgramAspects? {

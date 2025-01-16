@@ -200,10 +200,25 @@ static uint32_t internal_evaluate(struct cov_context* context, uint8_t* virgin_b
 
 int cov_evaluate(struct cov_context* context, struct edge_set* new_edges)
 {
-    uint32_t num_new_edges = internal_evaluate(context, context->virgin_bits, new_edges);
-    // TODO found_edges should also include crash bits
+    internal_evaluate(context, context->virgin_bits, new_edges);
+
+    uint32_t num_new_edges = 0;
+    uint32_t num_new_types = 0;
+
+    for (uint32_t i = 0; i < new_edges->count; i++) {
+        uint32_t edge_idx = new_edges->edge_indices[i];
+
+        if (edge_idx < context->num_edges - (1 << 21)) {
+            // It's a code edge
+            num_new_edges++;
+        } else {
+            // It's a type edge
+            num_new_types++;
+        }
+    }
     context->found_edges += num_new_edges;
-    return num_new_edges > 0;
+    context->found_types += num_new_types;
+    return num_new_edges > 0 || num_new_types > 0;
 }
 
 int cov_evaluate_crash(struct cov_context* context)
@@ -246,7 +261,9 @@ void cov_clear_edge_data(struct cov_context* context, uint32_t index)
         assert(context->edge_count[index]);
         context->edge_count[index] = 0;
     }
-    context->found_edges -= 1;
+    if (context->found_edges != 0) {
+        context->found_edges--;
+    }
     assert(!edge(context->virgin_bits, index));
     set_edge(context->virgin_bits, index);
 }

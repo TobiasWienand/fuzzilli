@@ -81,4 +81,7 @@ message Statistics {
 
         /// The timeout rate of recently generated programs (number of timeouts divided by number of generated programs).
         double timeoutRate = 17;
+
+        /// The number of unique location_type tuples discovered.
+        uint32 typeCoverageCount = 18;
 }

@@ -142,6 +142,10 @@ class MockEvaluator: ProgramEvaluator {
         return 13.37
     }
 
+    var currentTypeScore: UInt32 {
+        return 23
+    }
+
     func initialize(with fuzzer: Fuzzer) {}
 
     var isInitialized: Bool {
