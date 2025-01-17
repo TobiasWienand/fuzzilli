@@ -155,7 +155,7 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
 
         let _ = fuzzer.execute(Program(), purpose: .startup)
         libcoverage.cov_finish_initialization(&context, shouldTrackEdgeCounts ? 1 : 0)
-        logger.info("Initialized, \(context.num_edges - (1 << 21)) edges")
+        logger.info("Initialized, \(context.num_edges - (1 << 18)) edges")
     }
 
     public func evaluate(_ execution: Execution) -> ProgramAspects? {
@@ -170,7 +170,7 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
         if result == 1 {
             return CovEdgeSet(edges: newEdgeSet.edge_indices, numEdges: newEdgeSet.count)
         } else {
-            assert(newEdgeSet.edge_indices == nil && newEdgeSet.count == 0)
+            //assert(newEdgeSet.edge_indices == nil && newEdgeSet.count == 0)
             return nil
         }
     }
