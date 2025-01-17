@@ -36,9 +36,11 @@ struct edge_counts {
 // Size of the shared memory region. Defines an upper limit on the number of
 // coverage edges that can be tracked. When bumping this number, please also
 // update Target/coverage.c.
-#define SHM_SIZE 0x140000
-#define TYPE_OFFSET 0x100000
-#define MAX_EDGES ((TYPE_OFFSET - 4) * 8)
+#define SHM_SIZE_FOR_CODE 0x100000
+#define SHM_SIZE_FOR_TYPE 0x8000
+#define SHM_SIZE (SHM_SIZE_FOR_CODE + SHM_SIZE_FOR_TYPE)
+
+#define MAX_EDGES ((SHM_SIZE_FOR_CODE - 4) * 8)
 
 struct shmem_data {
     uint32_t num_edges;

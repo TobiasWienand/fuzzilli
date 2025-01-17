@@ -1,3 +1,4 @@
+#define FEEDBACK_TYPE 3
 // Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -208,7 +209,7 @@ int cov_evaluate(struct cov_context* context, struct edge_set* new_edges)
     for (uint32_t i = 0; i < new_edges->count; i++) {
         uint32_t edge_idx = new_edges->edge_indices[i];
 
-        if (edge_idx < context->num_edges - (1 << 21)) {
+        if (edge_idx < context->num_edges - (1 << 18)) {
             // It's a code edge
             num_new_edges++;
         } else {
@@ -218,7 +219,15 @@ int cov_evaluate(struct cov_context* context, struct edge_set* new_edges)
     }
     context->found_edges += num_new_edges;
     context->found_types += num_new_types;
-    return num_new_edges > 0 || num_new_types > 0;
+    if (FEEDBACK_TYPE == 1) { // just code coverage
+        return num_new_edges > 0;
+    } else if (FEEDBACK_TYPE == 2) { // just type coverage
+        return num_new_types > 0;
+    } else if (FEEDBACK_TYPE == 3) { // hybrid coverage
+        return num_new_edges > 0 || num_new_types > 0;
+    } else {
+        return 0;
+    }
 }
 
 int cov_evaluate_crash(struct cov_context* context)
