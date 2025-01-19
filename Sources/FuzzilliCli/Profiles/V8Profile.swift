@@ -422,17 +422,120 @@ fileprivate let RegExpFuzzer = ProgramTemplate("RegExpFuzzer") { b in
 let v8Profile = Profile(
     processArgs: { randomize in
         var args = [
-            "--expose-gc",
-            "--expose-externalize-string",
-            "--omit-quit",
-            "--allow-natives-syntax",
-            "--fuzzing",
-            "--jit-fuzzing",
-            "--future",
-            "--harmony",
-            "--js-staging",
-            "--wasm-staging"
-        ]
+    "--expose-gc",
+    "--expose-externalize-string",
+    "--omit-quit",
+    "--allow-natives-syntax",
+    "--fuzzing",
+    "--jit-fuzzing",
+    "--future",
+    "--harmony",
+    "--js-staging",
+    "--wasm-staging",
+    
+    "--experimental",
+
+    "--harmony-temporal",
+    "--harmony-shadow-realm",
+    "--harmony-struct",
+    "--harmony-intl-best-fit-matcher",
+    "--js-decorators",
+    "--js-source-phase-imports",
+
+    "--scavenger-pinning-objects",
+    "--scavenger-precise-pinning-objects",
+
+    "--maglev-future",
+    "--maglev-licm",
+    "--maglev-speculative-hoist-phi-untagging",
+    "--maglev-object-tracking",
+
+    "--turboshaft-assert-types",
+    "--turbo-compress-frame-translations",
+    "--turbo-collect-feedback-in-generic-lowering",
+    "--turboshaft-wasm-in-js-inlining",
+    "--turboshaft-typed-optimizations",
+    "--turbolev",
+    "--typed-array-length-loading",
+
+    // Experimental feedback normalization:
+    "--feedback-normalization",
+
+    // Always use string forwarding table:
+    "--always-use-string-forwarding-table",
+
+    // Experimental WASM PGO:
+    "--experimental-wasm-pgo-to-file",
+    "--experimental-wasm-pgo-from-file",
+
+    // Experimental WASM and JS integration:
+    "--wasm-fast-api",
+    "--experimental-wasm-compilation-hints",
+    "--experimental-wasm-instruction-tracing",
+    "--experimental-wasm-assume-ref-cast-succeeds",
+    "--experimental-wasm-ref-cast-nop",
+    "--experimental-wasm-skip-null-checks",
+    "--experimental-wasm-skip-bounds-checks",
+    "--experimental-wasm-branch-hinting",
+    "--experimental-wasm-stack-switching",
+    "--experimental-wasm-shared",
+    "--experimental-wasm-fp16",
+    "--experimental-wasm-growable-stacks",
+    "--experimental-wasm-memory-control",
+    "--experimental-wasm-type-reflection",
+    "--experimental-wasm-stringref",
+    "--experimental-wasm-imported-strings-utf8",
+    "--experimental-wasm-exnref",
+    "--experimental-wasm-jspi",
+    "--experimental-wasm-legacy-eh",
+    "--experimental-wasm-imported-strings",
+    "--experimental-wasm-memory64",
+    "--wasm-lazy-validation",
+    "--experimental-wasm-revectorize",
+
+    // Experimental Oilpan GC:
+    "--cppgc-young-generation",
+
+    // Experimental embedder instance type checks:
+    "--experimental-embedder-instance-types",
+
+    // Experimental stack trace frames:
+    "--experimental-stack-trace-frames",
+
+    // Experimental API exception reporting:
+    "--experimental-report-exceptions-from-callbacks",
+
+    // Experimental compiler dispatchers:
+    "--lazy-compile-dispatcher",
+    "--parallel-compile-tasks-for-eager-toplevel",
+    "--parallel-compile-tasks-for-lazy",
+
+    // Experimental icache flushing:
+    "--experimental-flush-embedded-blob-icache",
+
+    // Experimental regexp engine flags:
+    "--enable-experimental-regexp-engine",
+    "--default-to-experimental-regexp-engine",
+    "--experimental-regexp-engine-capture-group-opt",
+    "--experimental-regexp-engine-capture-group-opt-max-memory-usage=1024",
+    "--trace-experimental-regexp-engine",
+    "--enable-experimental-regexp-engine-on-excessive-backtracks",
+    
+    // Example threshold for backtracks before fallback to experimental engine:
+    "--regexp-backtracks-before-fallback=100000",
+
+    // Strict termination checks:
+    "--strict-termination-checks",
+
+    // Experimental perf/vtune flags:
+    "--perf-prof",
+    "--perf-prof-annotate-wasm",
+    "--perf-prof-unwinding-info",
+    "--vtune-prof-annotate-wasm",
+
+    // Enable a shared heap between isolates (experimental):
+    "--shared-heap"
+    ]
 
         guard randomize else { return args }
 
