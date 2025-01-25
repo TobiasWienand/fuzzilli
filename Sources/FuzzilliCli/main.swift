@@ -97,6 +97,7 @@ Options:
     --additionalArguments=args   : Pass additional arguments to the JS engine. If multiple arguments are passed, they should be separated by a comma.
     --tag=tag                    : Optional string tag associated with this instance which will be stored in the settings.json file as well as in crashing samples.
                                    This can for example be used to remember the target revision that is being fuzzed.
+    --enable-experimental        : Enables experimental features in the v8 engine
 """)
     exit(0)
 }
@@ -152,6 +153,8 @@ let swarmTesting = args.has("--swarmTesting")
 let argumentRandomization = args.has("--argumentRandomization")
 let additionalArguments = args["--additionalArguments"] ?? ""
 let tag = args["--tag"]
+let enableExperimental = args.has("--enableExperimental")
+enableExperimentalFeatures = enableExperimental
 
 guard numJobs >= 1 else {
     configError("Must have at least 1 job")
