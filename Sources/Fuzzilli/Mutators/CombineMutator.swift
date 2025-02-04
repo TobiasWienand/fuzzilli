@@ -41,4 +41,44 @@ public class CombineMutator: BaseInstructionMutator {
         b.trace("Inserting program \(other.id)")
         b.append(other)
     }
+    public func targetedCombine(donor1: Program,
+                            donor2: Program,
+                            targetLocation: UInt32,
+                            targetType: UInt32,
+                            fuzzer: Fuzzer) -> Program? {
+        let b = fuzzer.makeBuilder(forMutating: donor1)
+        b.traceHeader("Mutating \(donor1.id) with \(name)")
+        b.trace("Targeted combine attempt for (location, type)=(\(targetLocation), \(targetType)) with donor1 \(donor1.id) and donor2 \(donor2.id)")
+        
+        beginMutation(of: donor1)
+
+        var candidates = [Int]()
+        for instr in donor1.code {
+            if canMutate(instr) {
+                candidates.append(instr.index)
+            }
+        }
+
+        guard candidates.count > 0 else {
+            return nil
+        }
+
+        var toMutate = Set<Int>()
+        for _ in 0..<Int.random(in: 1...maxSimultaneousMutations) {
+            toMutate.insert(chooseUniform(from: candidates))
+        }
+
+        b.adopting(from: donor1) {
+            for instr in donor1.code {
+                if toMutate.contains(instr.index) {
+                    mutate(instr, b)
+                } else {
+                    b.adopt(instr)
+                }
+            }
+        }
+        
+        donor1.contributors.insert(self)
+        return donor1
+    }
 }

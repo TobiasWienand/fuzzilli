@@ -47,6 +47,11 @@ public class BasicCorpus: ComponentBase, Collection, Corpus {
         assert(minSize >= 1)
         assert(maxSize >= minSize)
 
+        // Check that the corpus is “infinite” so that programs are never evicted.
+        if maxSize != Int.max {
+            fatalError("BasicCorpus must be initialized with a RingBuffer of size Int.max to guarantee stable donor information!")
+        }
+
         self.minSize = minSize
         self.minMutationsPerSample = minMutationsPerSample
 
@@ -75,7 +80,10 @@ public class BasicCorpus: ComponentBase, Collection, Corpus {
         return true
     }
 
-    public func add(_ program: Program, _ : ProgramAspects) {
+    public func add(_ program: Program, _ aspects: ProgramAspects) {
+        if let reliableAspects = aspects as? CovEdgeSet {
+            program.label(with: reliableAspects)
+        }
         addInternal(program)
     }
 
@@ -104,6 +112,37 @@ public class BasicCorpus: ComponentBase, Collection, Corpus {
         let program = programs[idx]
         assert(!program.isEmpty)
         return program
+    }
+
+    public func findDonorPairForInterestingCombination(evaluator: ProgramCoverageEvaluator) -> (Program, Program, UInt32, UInt32)? {
+        var tries = 0
+        while tries < 5 {
+            tries += 1
+            // Randomly select two donor programs from the corpus.
+            let donorProgram1 = self.randomElementForSplicing()
+            let donorProgram2 = self.randomElementForSplicing()
+            
+            // Retrieve the reliable labels directly from the programs.
+            let candidateLocations = donorProgram1.reliableLocations
+            let candidateTypes = donorProgram2.reliableTypes
+            
+            // Skip if either program has not been reliably labeled.
+            if candidateLocations.isEmpty || candidateTypes.isEmpty {
+                continue
+            }
+            
+            // Try every candidate from the Cartesian product.
+            for location in candidateLocations {
+                for type in candidateTypes {
+                    if evaluator.wouldBeInteresting(location: location, type: type) {
+                        //logger.info("Found interesting combination after \(tries) tries: location \(location), type \(type)")
+                        return (donorProgram1, donorProgram2, location, type)
+                    }
+                }
+            }
+        }
+        //logger.info("Could not find an interesting combination after 30 tries")
+        return nil
     }
 
     public func allPrograms() -> [Program] {

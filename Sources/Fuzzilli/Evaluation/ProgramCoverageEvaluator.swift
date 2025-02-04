@@ -20,9 +20,16 @@ public class CovEdgeSet: ProgramAspects {
     private var numEdges: UInt32
     fileprivate var edges: UnsafeMutablePointer<UInt32>?
 
-    init(edges: UnsafeMutablePointer<UInt32>?, numEdges: UInt32) {
+    public var visitedLocations: [UInt32]
+    public var visitedTypes: [UInt32]
+
+    init(edges: UnsafeMutablePointer<UInt32>?, numEdges: UInt32, visitedLocations: [UInt32], visitedTypes: [UInt32]) {
         self.numEdges = numEdges
         self.edges = edges
+
+        self.visitedLocations = visitedLocations
+        self.visitedTypes = visitedTypes
+
         super.init(outcome: .succeeded)
     }
 
@@ -30,13 +37,18 @@ public class CovEdgeSet: ProgramAspects {
         free(edges)
     }
 
-    /// The number of aspects is simply the number of newly discovered coverage edges.
+    /// The number of aspects is simply the number of newly discovered coverage edges. (not counting locations/types).
     public override var count: UInt32 {
         return numEdges
     }
 
     public override var description: String {
-        return "new coverage: \(count) newly discovered edge\(count > 1 ? "s" : "") in the CFG of the target"
+        return """
+        new coverage:
+          \(numEdges) newly discovered code edges,
+          visited \(visitedLocations.count) locations,
+          visited \(visitedTypes.count) types
+        """
     }
 
     /// Returns an array of all the newly discovered edges of this CovEdgeSet.
@@ -66,6 +78,14 @@ public class CovEdgeSet: ProgramAspects {
             self.edges![i] = edge
         }
     }
+
+    public func setTypes<T: Collection>(_ collection: T) where T.Element == UInt32 {
+        self.visitedTypes = Array(collection)
+    }
+
+    public func setLocations<T: Collection>(_ collection: T) where T.Element == UInt32 {
+        self.visitedLocations = Array(collection)
+    }
 }
 
 public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
@@ -85,7 +105,7 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
 
     /// The current edge coverage percentage.
     public var currentScore: Double {
-        return Double(context.found_edges) / Double(context.num_edges)
+        return Double(context.found_edges) / Double(context.num_edges - (1 << 18))
     }
 
     public var currentTypeScore: UInt32 {
@@ -168,7 +188,29 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
         }
 
         if result == 1 {
-            return CovEdgeSet(edges: newEdgeSet.edge_indices, numEdges: newEdgeSet.count)
+            // 1) Fetch newly visited locations
+            var visitedLocations = libcoverage.edge_set()
+            libcoverage.cov_get_visited_locations(&context, &visitedLocations)
+            let locationsArray = Array(
+                UnsafeBufferPointer(start: visitedLocations.edge_indices,
+                                    count: Int(visitedLocations.count))
+            )
+
+            // 2) Fetch newly visited types
+            var visitedTypes = libcoverage.edge_set()
+            libcoverage.cov_get_visited_types(&context, &visitedTypes)
+            let typesArray = Array(
+                UnsafeBufferPointer(start: visitedTypes.edge_indices,
+                                    count: Int(visitedTypes.count))
+            )
+
+            // 3) Construct our CovEdgeSet
+            return CovEdgeSet(
+                edges: newEdgeSet.edge_indices,
+                numEdges: newEdgeSet.count,
+                visitedLocations: locationsArray,
+                visitedTypes: typesArray
+            )
         } else {
             //assert(newEdgeSet.edge_indices == nil && newEdgeSet.count == 0)
             return nil
@@ -225,21 +267,34 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
         guard execution.outcome == .succeeded else { return nil }
         guard let secondCovEdgeSet = evaluate(execution) as? CovEdgeSet else { return nil }
 
+        // Compute the intersection of code edges.
         let firstEdgeSet = Set(UnsafeBufferPointer(start: firstCovEdgeSet.edges, count: Int(firstCovEdgeSet.count)))
         let secondEdgeSet = Set(UnsafeBufferPointer(start: secondCovEdgeSet.edges, count: Int(secondCovEdgeSet.count)))
+        let intersectedEdgeSet = secondEdgeSet.intersection(firstEdgeSet)
+        guard intersectedEdgeSet.count != 0 else { return nil }
 
-        // Reset all edges that were only triggered by the 2nd execution (those only triggered by the 1st execution were already reset earlier).
+        // Compute the intersection of visited types.
+        let firstTypeSet = Set(firstCovEdgeSet.visitedTypes)
+        let secondTypeSet = Set(secondCovEdgeSet.visitedTypes)
+        let intersectedTypes = Array(firstTypeSet.intersection(secondTypeSet))
+
+        // Compute the intersection of visited locations.
+        let firstLocationSet = Set(firstCovEdgeSet.visitedLocations)
+        let secondLocationSet = Set(secondCovEdgeSet.visitedLocations)
+        let intersectedLocations = Array(firstLocationSet.intersection(secondLocationSet))
+
+        // Reset all edges that were only triggered by the 2nd execution.
         for edge in secondEdgeSet.subtracting(firstEdgeSet) {
             resetEdge(edge)
         }
 
-        // Compute the intersection of the edges.
-        let intersectedEdgeSet = secondEdgeSet.intersection(firstEdgeSet)
-        guard intersectedEdgeSet.count != 0 else { return nil }
+        // visited locations and types are automatically reset in the REPRL loop
 
         // Here we reuse one of the existing CovEdgeSets instead of creating a new one to avoid a malloc() and free() of the backing buffer.
         let intersectedCovEdgeSet = secondCovEdgeSet
         intersectedCovEdgeSet.setEdges(intersectedEdgeSet)
+        intersectedCovEdgeSet.setTypes(intersectedTypes)
+        intersectedCovEdgeSet.setLocations(intersectedLocations)
 
         return intersectedCovEdgeSet
     }
@@ -249,6 +304,7 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
         state.append(Data(bytes: &context.num_edges, count: 4))
         state.append(Data(bytes: &context.bitmap_size, count: 4))
         state.append(Data(bytes: &context.found_edges, count: 4))
+        state.append(Data(bytes: &context.found_types, count: 4))
         state.append(context.virgin_bits, count: Int(context.bitmap_size))
         state.append(context.crash_bits, count: Int(context.bitmap_size))
         return state
@@ -256,7 +312,7 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
 
     public func importState(_ state: Data) throws {
         assert(isInitialized)
-        let headerSize = 12     // 3 x 4 bytes: num_edges, bitmap_size, found_edges. See exportState() above
+        let headerSize = 16     // 3 x 4 bytes: num_edges, bitmap_size, found_edges. See exportState() above
 
         guard state.count == headerSize + Int(context.bitmap_size) * 2 else {
             throw FuzzilliError.evaluatorStateImportError("Cannot import coverage state as it has an unexpected size. Ensure all instances use the same build of the target")
@@ -265,12 +321,15 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
         let numEdges = state.withUnsafeBytes { $0.load(fromByteOffset: 0, as: UInt32.self) }
         let bitmapSize = state.withUnsafeBytes { $0.load(fromByteOffset: 4, as: UInt32.self) }
         let foundEdges = state.withUnsafeBytes { $0.load(fromByteOffset: 8, as: UInt32.self) }
+        let foundTypes = state.withUnsafeBytes { $0.load(fromByteOffset: 12, as: UInt32.self) }
+
 
         guard bitmapSize == context.bitmap_size && numEdges == context.num_edges else {
             throw FuzzilliError.evaluatorStateImportError("Cannot import coverage state due to different bitmap sizes. Ensure all instances use the same build of the target")
         }
 
         context.found_edges = foundEdges
+        context.found_types = foundTypes
 
         var start = state.startIndex + headerSize
         state.copyBytes(to: context.virgin_bits, from: start..<start + Int(bitmapSize))
@@ -283,6 +342,10 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
     public func resetState() {
         resetCounts = [:]
         libcoverage.cov_reset_state(&context)
+    }
+
+    public func wouldBeInteresting(location: UInt32, type: UInt32) -> Bool {
+        return libcoverage.cov_would_be_interesting(&context, location, type) == 1
     }
 
 

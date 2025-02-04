@@ -421,6 +421,7 @@ func makeFuzzer(with configuration: Configuration) -> Fuzzer {
         // the MutationEngine can already find most "low-hanging fruits" in its first run.
         engine = MultiEngine(engines: engines, initialActive: mutationEngine, iterationsPerEngine: 10000)
     default:
+        //engine = TargetedMutationEngine(numConsecutiveMutations: consecutiveMutations) // TODO: This should be the default engine
         engine = MutationEngine(numConsecutiveMutations: consecutiveMutations)
     }
 

@@ -214,4 +214,6 @@ message Program {
     repeated Instruction code = 2;
     map<sint32, string> comments = 3;
     Program parent = 4;
+    repeated uint32 reliableLocations = 5;
+    repeated uint32 reliableTypes = 6;
 }

@@ -41,6 +41,12 @@ public final class Program {
     /// Each program has a unique ID to identify it even accross different fuzzer instances.
     public private(set) lazy var id = UUID()
 
+    /// The reliably triggered visited locations computed via repeated intersection rounds.
+    public var reliableLocations: [UInt32] = []
+
+    /// The reliably triggered visited types computed via repeated intersection rounds.
+    public var reliableTypes: [UInt32] = []
+
     /// Constructs an empty program.
     public init() {
         self.code = Code()
@@ -73,6 +79,14 @@ public final class Program {
         return size == 0
     }
 
+    /// Label this program with reliably triggered locations and types.
+    /// This method is expected to be called when adding the program to the corpus;
+    /// the Aspects passed here have been computed reliably (e.g. via repeated intersection).
+    public func label(with aspects: CovEdgeSet) {
+        self.reliableLocations = aspects.visitedLocations
+        self.reliableTypes = aspects.visitedTypes
+    }
+
     public func clearParent() {
         parent = nil
     }
@@ -99,6 +113,8 @@ extension Program: ProtobufConvertible {
             if let parent = parent {
                 $0.parent = parent.asProtobuf(opCache: opCache)
             }
+            $0.reliableLocations = reliableLocations
+            $0.reliableTypes = reliableTypes
         }
     }
 
@@ -129,6 +145,9 @@ extension Program: ProtobufConvertible {
         }
 
         self.comments = ProgramComments(from: proto.comments)
+        
+        self.reliableLocations = proto.reliableLocations
+        self.reliableTypes = proto.reliableTypes
 
         if proto.hasParent {
             self.parent = try Program(from: proto.parent, opCache: opCache)
