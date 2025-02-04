@@ -66,6 +66,8 @@ public class Fuzzer {
     /// The engine used for initial corpus generation (if performed).
     public let corpusGenerationEngine = GenerativeEngine()
 
+    public let feedbackMetric: Int
+
     /// The possible states of a fuzzer.
     public enum State {
         // Initial state of the fuzzer. Will be changed to one of the below states during
@@ -157,7 +159,7 @@ public class Fuzzer {
     public init(
         configuration: Configuration, scriptRunner: ScriptRunner, engine: FuzzEngine, mutators: WeightedList<Mutator>,
         codeGenerators: WeightedList<CodeGenerator>, programTemplates: WeightedList<ProgramTemplate>, evaluator: ProgramEvaluator,
-        environment: Environment, lifter: Lifter, corpus: Corpus, minimizer: Minimizer, queue: DispatchQueue? = nil
+        environment: Environment, lifter: Lifter, corpus: Corpus, minimizer: Minimizer, feedbackMetric: Int, queue: DispatchQueue? = nil
     ) {
         let uniqueId = UUID()
         self.id = uniqueId
@@ -176,6 +178,7 @@ public class Fuzzer {
         self.corpus = corpus
         self.runner = scriptRunner
         self.minimizer = minimizer
+        self.feedbackMetric = feedbackMetric
         self.logger = Logger(withLabel: "Fuzzer")
 
         // Register this fuzzer instance with its queue so that it is possible to
@@ -223,6 +226,34 @@ public class Fuzzer {
 
         // We only allow one instance of certain modules.
         assert(modules.values.filter( { $0 is DistributedFuzzingChildNode }).count <= 1)
+    }
+
+    private func isInteresting(_ aspects: ProgramAspects) -> Bool {
+        let covEdges = aspects as! CovEdgeSet
+        
+        let typeEdgeThreshold = 1 << 18
+        var hasCodeEdge = false
+        var hasTypeEdge = false
+        
+        
+        for edge in covEdges.getEdges() {
+            if edge < typeEdgeThreshold {
+                hasCodeEdge = true
+            } else {
+                hasTypeEdge = true
+            }
+        }
+        
+        switch feedbackMetric {
+        case 1:
+            return hasCodeEdge
+        case 2:
+            return hasTypeEdge
+        case 3:
+            return hasCodeEdge || hasTypeEdge
+        default:
+            fatalError("Unknown feedback metric")
+        }
     }
 
     /// Initializes this fuzzer.
@@ -686,7 +717,9 @@ public class Fuzzer {
 
             // If we're running in static corpus mode, we only add programs to our corpus during corpus import.
             if !config.staticCorpus || origin.isFromCorpusImport() {
-                corpus.add(program, aspects)
+                if isInteresting(aspects) {
+                    corpus.add(program, aspects)
+                }
             }
         }
 

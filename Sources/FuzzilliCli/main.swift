@@ -98,6 +98,8 @@ Options:
     --tag=tag                    : Optional string tag associated with this instance which will be stored in the settings.json file as well as in crashing samples.
                                    This can for example be used to remember the target revision that is being fuzzed.
     --enable-experimental        : Enables experimental features in the v8 engine
+    --feedback-metric=metric     : Use the given feedback metric. Valid values: "code" (default), "type", "hybrid".
+
 """)
     exit(0)
 }
@@ -155,6 +157,18 @@ let additionalArguments = args["--additionalArguments"] ?? ""
 let tag = args["--tag"]
 let enableExperimental = args.has("--enableExperimental")
 enableExperimentalFeatures = enableExperimental
+let feedbackMetricFlag = args["--feedback-metric"] ?? "code"
+let feedbackMetric: Int
+switch feedbackMetricFlag.lowercased() {
+case "code":
+    feedbackMetric = 1
+case "type":
+    feedbackMetric = 2
+case "hybrid":
+    feedbackMetric = 3
+default:
+    configError("Invalid --feedback-metric flag. Valid values are 'code', 'type', or 'hybrid'.")
+}
 
 guard numJobs >= 1 else {
     configError("Must have at least 1 job")
@@ -483,7 +497,8 @@ func makeFuzzer(with configuration: Configuration) -> Fuzzer {
                   environment: environment,
                   lifter: lifter,
                   corpus: corpus,
-                  minimizer: minimizer)
+                  minimizer: minimizer,
+                  feedbackMetric: feedbackMetric)
 }
 
 // The configuration of the main fuzzer instance.

@@ -218,6 +218,7 @@ public func makeMockFuzzer(config maybeConfiguration: Configuration? = nil, engi
                         lifter: lifter,
                         corpus: corpus,
                         minimizer: minimizer,
+                        feedbackMetric: 1,
                         queue: DispatchQueue.main)
 
     fuzzer.registerEventListener(for: fuzzer.events.Log) { ev in

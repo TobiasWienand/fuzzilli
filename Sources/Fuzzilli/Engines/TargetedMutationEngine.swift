@@ -67,7 +67,7 @@ public class TargetedMutationEngine: FuzzEngine {
                                                                             targetLocation: targetLocation,
                                                                             targetType: targetType,
                                                                             fuzzer: fuzzer) {
-                        let outcome = execute(targetedProgram)
+                        execute(targetedProgram)
                         //logger.info("    Execution outcome: \(outcome)")
                         
                         // Check if the targeted combination was successfully triggered.
