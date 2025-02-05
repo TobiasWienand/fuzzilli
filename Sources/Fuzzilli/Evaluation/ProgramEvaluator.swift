@@ -35,6 +35,8 @@ public protocol ProgramEvaluator: Component {
 
     var currentTypeScore: UInt32 { get }
 
+    var codeEdgeThreshold: UInt32 { get }
+
     /// Export the current state of this evaluator so it can be replicated.
     func exportState() -> Data
 

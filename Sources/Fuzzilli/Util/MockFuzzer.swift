@@ -146,6 +146,10 @@ class MockEvaluator: ProgramEvaluator {
         return 23
     }
 
+    var codeEdgeThreshold: UInt32 { 
+        return 1000000
+    }
+
     func initialize(with fuzzer: Fuzzer) {}
 
     var isInitialized: Bool {

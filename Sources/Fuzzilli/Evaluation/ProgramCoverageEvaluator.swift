@@ -108,6 +108,10 @@ public class ProgramCoverageEvaluator: ComponentBase, ProgramEvaluator {
         return Double(context.found_edges) / Double(context.num_edges - (1 << 18))
     }
 
+    public var codeEdgeThreshold: UInt32 {
+        return context.num_edges - (1 << 18)
+    }
+
     public var currentTypeScore: UInt32 {
         return UInt32(context.found_types)
     }

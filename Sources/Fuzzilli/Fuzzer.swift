@@ -230,14 +230,14 @@ public class Fuzzer {
 
     private func isInteresting(_ aspects: ProgramAspects) -> Bool {
         let covEdges = aspects as! CovEdgeSet
-        
-        let typeEdgeThreshold = 1 << 18
+
+        let codeEdgeThreshold = evaluator.codeEdgeThreshold
         var hasCodeEdge = false
         var hasTypeEdge = false
         
         
         for edge in covEdges.getEdges() {
-            if edge < typeEdgeThreshold {
+            if edge < codeEdgeThreshold {
                 hasCodeEdge = true
             } else {
                 hasTypeEdge = true
