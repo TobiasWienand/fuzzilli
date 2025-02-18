@@ -36,13 +36,27 @@ struct edge_counts {
 // Size of the shared memory region. Defines an upper limit on the number of
 // coverage edges that can be tracked. When bumping this number, please also
 // update Target/coverage.c.
-#define SHM_SIZE 0x200000
-#define MAX_EDGES ((SHM_SIZE - 4) * 8)
+#define SHM_SIZE_FOR_CODE 0x100000
+#define SHM_SIZE_FOR_TYPE 0x8000
+#define SHM_SIZE_FOR_COVERAGE  128     // 1024 bits = 128 bytes
+#define SHM_SIZE (SHM_SIZE_FOR_CODE + SHM_SIZE_FOR_TYPE + SHM_SIZE_FOR_COVERAGE)
 
-// Structure of the shared memory region.
+#define MAX_EDGES ((SHM_SIZE_FOR_CODE - 4) * 8)
+
+#define COVERAGE_BITS_SIZE 1024
+#define LOCATION_BITS_SIZE 512
+#define TYPE_BITS_SIZE     512
+#define COVERAGE_BYTES_SIZE  (COVERAGE_BITS_SIZE / 8)  // 128
+#define LOCATION_BYTES_SIZE  (LOCATION_BITS_SIZE / 8)  // 64
+#define TYPE_BYTES_SIZE      (TYPE_BITS_SIZE / 8)      // 64
+
 struct shmem_data {
     uint32_t num_edges;
-    uint8_t edges[];
+    // Use the same coverage_bits array as in V8:
+    unsigned char coverage_bits[COVERAGE_BYTES_SIZE];  // 1024 bits = 128 bytes
+
+    // The edges bitmap follows immediately after coverage_bits
+    unsigned char edges[];
 };
 
 struct cov_context {
@@ -65,6 +79,9 @@ struct cov_context {
     
     // Total number of edges that have been discovered so far.
     uint32_t found_edges;
+
+    // Total number of edges that have been discovered so far.
+    uint32_t found_types;
 
 #if defined(_WIN32)
     // Mapping Handle
@@ -93,4 +110,7 @@ int cov_get_edge_counts(struct cov_context* context, struct edge_counts* edges);
 void cov_clear_edge_data(struct cov_context* context, uint32_t index);
 void cov_reset_state(struct cov_context* context);
 
+int cov_get_visited_locations(struct cov_context* context, struct edge_set* visited);
+int cov_get_visited_types(struct cov_context* context, struct edge_set* visited);
+int cov_would_be_interesting(struct cov_context* context, uint32_t location, uint32_t type);
 #endif

@@ -200,10 +200,26 @@ static uint32_t internal_evaluate(struct cov_context* context, uint8_t* virgin_b
 
 int cov_evaluate(struct cov_context* context, struct edge_set* new_edges)
 {
-    uint32_t num_new_edges = internal_evaluate(context, context->virgin_bits, new_edges);
-    // TODO found_edges should also include crash bits
+    internal_evaluate(context, context->virgin_bits, new_edges);
+
+    uint32_t num_new_edges = 0;
+    uint32_t num_new_types = 0;
+
+    for (uint32_t i = 0; i < new_edges->count; i++) {
+        uint32_t edge_idx = new_edges->edge_indices[i];
+
+        if (edge_idx < context->num_edges - (1 << 18)) {
+            // It's a code edge
+            num_new_edges++;
+        } else {
+            // It's a type edge
+            num_new_types++;
+        }
+    }
     context->found_edges += num_new_edges;
-    return num_new_edges > 0;
+    context->found_types += num_new_types;
+
+    return new_edges->count > 0;
 }
 
 int cov_evaluate_crash(struct cov_context* context)
@@ -246,7 +262,11 @@ void cov_clear_edge_data(struct cov_context* context, uint32_t index)
         assert(context->edge_count[index]);
         context->edge_count[index] = 0;
     }
-    context->found_edges -= 1;
+    if (index < context->num_edges - (1 << 18)) {
+        context->found_edges--;
+    } else {
+        context->found_types--;
+    }
     assert(!edge(context->virgin_bits, index));
     set_edge(context->virgin_bits, index);
 }
@@ -264,5 +284,64 @@ void cov_reset_state(struct cov_context* context) {
     clear_edge(context->crash_bits, 0);
 
     context->found_edges = 0;
+    context->found_types = 0;
 }
 
+int cov_get_visited_locations(struct cov_context* context, struct edge_set* visited) {
+    visited->count = 0;
+    visited->edge_indices = malloc(512 * sizeof(uint32_t));
+    if (!visited->edge_indices) {
+        fprintf(stderr, "[LibCoverage] Failed to allocate memory for visited locations\n");
+        return 0;
+    }
+
+    for (uint32_t i = 0; i < 512; i++) {
+        uint32_t byteIndex = i >> 3;
+        uint32_t bitIndex  = i & 7;
+        uint8_t  bitMask   = 1 << bitIndex;
+        
+        if (context->shmem->coverage_bits[byteIndex] & bitMask) {
+            visited->edge_indices[visited->count] = i;
+            visited->count++;
+        }
+    }
+
+    visited->edge_indices = realloc(visited->edge_indices, visited->count * sizeof(uint32_t));
+    return visited->count;
+}
+
+int cov_get_visited_types(struct cov_context* context, struct edge_set* visited) {
+    visited->count = 0;
+    visited->edge_indices = malloc(512 * sizeof(uint32_t));
+    if (!visited->edge_indices) {
+        fprintf(stderr, "[LibCoverage] Failed to allocate memory for visited types\n");
+        return 0;
+    }
+
+    // Loop over possible type indices 0..511
+    for (uint32_t i = 0; i < 512; i++) {
+        uint32_t byteIndex = i >> 3;   // i / 8
+        uint32_t bitIndex  = i & 7;     // i % 8
+        uint8_t  bitMask   = 1 << bitIndex;
+
+        // coverage_bits offset for types is LOCATION_BYTES_SIZE (64 bytes)
+        if (context->shmem->coverage_bits[LOCATION_BYTES_SIZE + byteIndex] & bitMask) {
+            visited->edge_indices[visited->count] = i;
+            visited->count++;
+        }
+    }
+
+    visited->edge_indices = realloc(visited->edge_indices, visited->count * sizeof(uint32_t));
+    return visited->count;
+}
+
+int cov_would_be_interesting(struct cov_context* context, uint32_t location, uint32_t type) {
+    // Ensure the parameters are in range.
+    if (location >= 512 || type >= 512)
+        return 0;
+    // Compute the index as done in RecordTypeCoverage.
+    uint32_t idx = (location << 9) | type;
+    uint32_t adjusted_idx = idx + (context->num_edges - (1 << 18));
+    // If the bit is not yet set in the shared memory, then this combination is unseen.
+    return (edge(context->shmem->edges, adjusted_idx) == 0) ? 1 : 0;
+}

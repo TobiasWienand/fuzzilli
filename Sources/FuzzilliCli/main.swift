@@ -29,7 +29,7 @@ Options:
     --profile=name               : Select one of several preconfigured profiles.
                                    Available profiles: \(profiles.keys).
     --jobs=n                     : Total number of fuzzing jobs. This will start a main instance and n-1 worker instances.
-    --engine=name                : The fuzzing engine to use. Available engines: "mutation" (default), "hybrid", "multi".
+    --engine=name                : The fuzzing engine to use. Available engines: "mutation" (default), "hybrid", "multi", "type".
                                    Only the mutation engine should be regarded stable at this point.
     --corpus=name                : The corpus scheduler to use. Available schedulers: "basic" (default), "markov"
     --logLevel=level             : The log level to use. Valid values: "verbose", "info", "warning", "error", "fatal" (default: "info").
@@ -98,6 +98,9 @@ Options:
     --tag=tag                    : Optional string tag associated with this instance which will be stored in the settings.json file as well as in crashing samples.
                                    This can for example be used to remember the target revision that is being fuzzed.
     --wasm                       : Enable Wasm CodeGenerators (see WasmCodeGenerators.swift).
+    --feedback-metric=metric     : Use the given feedback metric. Valid values: "code" (default), "type", "hybrid".
+    --earlyDiscard               : Do not process samples that are not interesting. This should always be done except for coverage evaluation.
+
 
 """)
     exit(0)
@@ -155,7 +158,20 @@ let argumentRandomization = args.has("--argumentRandomization")
 let additionalArguments = args["--additionalArguments"] ?? ""
 let tag = args["--tag"]
 let enableWasm = args.has("--wasm")
+let feedbackMetricFlag = args["--feedback-metric"] ?? ""
+let feedbackMetric: Int
+switch feedbackMetricFlag.lowercased() {
+case "code":
+    feedbackMetric = 1
+case "type":
+    feedbackMetric = 2
+case "hybrid":
+    feedbackMetric = 3
+default:
+    configError("Invalid --feedback-metric flag. Valid values are 'code', 'type', or 'hybrid'.")
+}
 
+let earlyDiscard = args.has("--earlyDiscard")
 guard numJobs >= 1 else {
     configError("Must have at least 1 job")
 }
@@ -175,7 +191,7 @@ guard let logLevel = logLevelByName[logLevelName] else {
     configError("Invalid log level \(logLevelName)")
 }
 
-let validEngines = ["mutation", "hybrid", "multi"]
+let validEngines = ["mutation", "hybrid", "multi", "type"]
 guard validEngines.contains(engineName) else {
     configError("--engine must be one of \(validEngines)")
 }
@@ -428,6 +444,8 @@ func makeFuzzer(with configuration: Configuration) -> Fuzzer {
         // For the same reason, we also use a relatively larger iterationsPerEngine value, so that
         // the MutationEngine can already find most "low-hanging fruits" in its first run.
         engine = MultiEngine(engines: engines, initialActive: mutationEngine, iterationsPerEngine: 10000)
+    case "type":
+        engine = TypeFeedbackEngine(numConsecutiveMutations: consecutiveMutations)
     default:
         engine = MutationEngine(numConsecutiveMutations: consecutiveMutations)
     }
@@ -499,7 +517,9 @@ func makeFuzzer(with configuration: Configuration) -> Fuzzer {
                   environment: environment,
                   lifter: lifter,
                   corpus: corpus,
-                  minimizer: minimizer)
+                  minimizer: minimizer,
+                  feedbackMetric: feedbackMetric,
+                  earlyDiscard: earlyDiscard)
 }
 
 // The configuration of the main fuzzer instance.

@@ -47,6 +47,11 @@ public class BasicCorpus: ComponentBase, Collection, Corpus {
         assert(minSize >= 1)
         assert(maxSize >= minSize)
 
+        // Check that the corpus is “infinite” so that programs are never evicted.
+        if maxSize != Int.max {
+            fatalError("BasicCorpus must be initialized with a RingBuffer of size Int.max to guarantee stable donor information!")
+        }
+
         self.minSize = minSize
         self.minMutationsPerSample = minMutationsPerSample
 
@@ -75,7 +80,10 @@ public class BasicCorpus: ComponentBase, Collection, Corpus {
         return true
     }
 
-    public func add(_ program: Program, _ : ProgramAspects) {
+    public func add(_ program: Program, _ aspects: ProgramAspects) {
+        if let reliableAspects = aspects as? CovEdgeSet {
+            program.label(with: reliableAspects)
+        }
         addInternal(program)
     }
 

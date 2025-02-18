@@ -62,6 +62,9 @@ public class Statistics: Module {
     /// The IDs of nodes that are currently inactive.
     private var inactiveNodes = Set<UUID>()
 
+    public var typeCoverage: UInt32 = 0
+
+
     public init() {}
 
     /// Computes and returns the statistical data for this instance and all connected nodes.
@@ -170,6 +173,7 @@ public class Statistics: Module {
         fuzzer.registerEventListener(for: fuzzer.events.InterestingProgramFound) { ev in
             self.ownData.interestingSamples += 1
             self.ownData.coverage = fuzzer.evaluator.currentScore
+            self.ownData.typeCoverageCount = fuzzer.evaluator.currentTypeScore
             self.corpusProgramSizeAvg.add(ev.program.size)
             self.corpusSize = fuzzer.corpus.size
         }

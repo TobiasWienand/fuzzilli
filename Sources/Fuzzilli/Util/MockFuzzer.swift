@@ -162,6 +162,14 @@ class MockEvaluator: ProgramEvaluator {
         return 13.37
     }
 
+    var currentTypeScore: UInt32 {
+        return 23
+    }
+
+    var codeEdgeThreshold: UInt32 { 
+        return 1000000
+    }
+
     func initialize(with fuzzer: Fuzzer) {}
 
     var isInitialized: Bool {
@@ -234,6 +242,8 @@ public func makeMockFuzzer(config maybeConfiguration: Configuration? = nil, engi
                         lifter: lifter,
                         corpus: corpus,
                         minimizer: minimizer,
+                        feedbackMetric: 1,
+                        earlyDiscard: true,
                         queue: DispatchQueue.main)
 
     fuzzer.registerEventListener(for: fuzzer.events.Log) { ev in

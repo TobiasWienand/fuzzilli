@@ -33,6 +33,10 @@ public protocol ProgramEvaluator: Component {
     /// The current, accumulated score of all seen samples. E.g. total coverage.
     var currentScore: Double { get }
 
+    var currentTypeScore: UInt32 { get }
+
+    var codeEdgeThreshold: UInt32 { get }
+
     /// Export the current state of this evaluator so it can be replicated.
     func exportState() -> Data
 
